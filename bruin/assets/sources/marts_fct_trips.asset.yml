@@ -1,0 +1,3 @@
+name: marts.fct_trips
+type: pg.source
+description: Trip fact table built by dbt (Module 4). Declared here so Bruin knows the lineage.

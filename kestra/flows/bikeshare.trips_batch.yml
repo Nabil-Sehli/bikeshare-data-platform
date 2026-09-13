@@ -1,0 +1,114 @@
+id: trips_batch
+namespace: bikeshare
+description: |
+  **Modules 2 + 6 - Batch pipeline for Citi Bike trip history.**
+  1. Download monthly trip archives into the MinIO data lake (raw zone)
+  2. Clean + aggregate them with Spark -> curated Parquet + Postgres (raw schema)
+  3. Build the dependent dbt models and run their tests
+
+  Runs monthly for the previous month; trigger manually with any month range to backfill.
+
+labels:
+  project: bikeshare
+  layer: batch
+
+inputs:
+  - id: city
+    type: SELECT
+    values: [JC, NYC]
+    defaults: JC
+    description: JC = Jersey City/Hoboken (small), NYC = New York City (~1 GB per month)
+  - id: start_month
+    type: STRING
+    defaults: "2025-01"
+    validator: ^\d{4}-(0[1-9]|1[0-2])$
+  - id: end_month
+    type: STRING
+    defaults: "2025-03"
+    validator: ^\d{4}-(0[1-9]|1[0-2])$
+  - id: run_dbt
+    type: BOOL
+    defaults: true
+
+variables:
+  # rendered into each task's env (pluginDefaults were removed in Kestra 2.0)
+  pipeline_env:
+    PG_HOST: "{{ envs.pg_host }}"
+    PG_PORT: "{{ envs.pg_port }}"
+    PG_DATABASE: "{{ envs.pg_database }}"
+    PG_USER: "{{ envs.pg_user }}"
+    PG_PASSWORD: "{{ envs.pg_password }}"
+    S3_ENDPOINT: "{{ envs.s3_endpoint }}"
+    S3_ACCESS_KEY: "{{ envs.s3_access_key }}"
+    S3_SECRET_KEY: "{{ envs.s3_secret_key }}"
+    LAKE_BUCKET: "{{ envs.lake_bucket }}"
+    SPARK_DRIVER_MEMORY: "{{ envs.spark_driver_memory }}"
+
+tasks:
+  - id: download_to_lake
+    type: io.kestra.plugin.scripts.shell.Commands
+    description: Citi Bike S3 -> MinIO raw/tripdata (skips months already in the lake)
+    containerImage: bikeshare-pipelines:latest
+    taskRunner:
+      type: io.kestra.plugin.scripts.runner.docker.Docker
+      pullPolicy: NEVER
+      networkMode: bikeshare-net
+    env: "{{ render(vars.pipeline_env | toJson) }}"
+    retry:
+      type: constant
+      interval: PT1M
+      maxAttempts: 3
+    commands:
+      - >
+        python -m bikeshare.ingestion.trips_to_lake
+        --city {{ inputs.city }} --start-month {{ inputs.start_month }} --end-month {{ inputs.end_month }}
+        --skip-missing
+
+  - id: spark_process_trips
+    type: io.kestra.plugin.scripts.shell.Commands
+    description: Spark - clean, dedupe, enrich, aggregate; write curated Parquet + Postgres
+    containerImage: bikeshare-pipelines:latest
+    taskRunner:
+      type: io.kestra.plugin.scripts.runner.docker.Docker
+      pullPolicy: NEVER
+      networkMode: bikeshare-net
+    env: "{{ render(vars.pipeline_env | toJson) }}"
+    commands:
+      - >
+        python -m bikeshare.spark.process_trips
+        --city {{ inputs.city }} --start-month {{ inputs.start_month }} --end-month {{ inputs.end_month }}
+
+  - id: dbt_build_trip_models
+    type: io.kestra.plugin.core.flow.If
+    condition: "{{ inputs.run_dbt }}"
+    then:
+      - id: dbt_build
+        type: io.kestra.plugin.scripts.shell.Commands
+        description: dbt - rebuild everything downstream of the trip sources
+        containerImage: bikeshare-pipelines:latest
+        taskRunner:
+          type: io.kestra.plugin.scripts.runner.docker.Docker
+          pullPolicy: NEVER
+          networkMode: bikeshare-net
+        env: "{{ render(vars.pipeline_env | toJson) }}"
+        commands:
+          - cd /app/dbt
+          - dbt seed
+          - dbt build --select @source:raw
+
+errors:
+  - id: log_failure
+    type: io.kestra.plugin.core.log.Log
+    level: ERROR
+    message: "trips_batch failed for {{ inputs.city }} {{ inputs.start_month }}..{{ inputs.end_month }} (execution {{ execution.id }})"
+
+triggers:
+  - id: monthly_previous_month
+    type: io.kestra.plugin.core.trigger.Schedule
+    description: Citi Bike publishes a month's trips in the first half of the next month
+    cron: "0 6 20 * *"
+    inputs:
+      city: JC
+      start_month: "{{ trigger.date | dateAdd(-1, 'MONTHS') | date('yyyy-MM') }}"
+      end_month: "{{ trigger.date | dateAdd(-1, 'MONTHS') | date('yyyy-MM') }}"
+      run_dbt: true

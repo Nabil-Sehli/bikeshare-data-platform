@@ -1,0 +1,62 @@
+id: platform_backfill
+namespace: bikeshare
+description: |
+  **End-to-end run of the whole platform** - use this once after `make up`.
+  reference data -> trip batch (lake + Spark) -> streaming micro-batch -> dbt full build -> Bruin
+
+labels:
+  project: bikeshare
+  layer: orchestration
+
+inputs:
+  - id: city
+    type: SELECT
+    values: [JC, NYC]
+    defaults: JC
+  - id: start_month
+    type: STRING
+    defaults: "2025-01"
+  - id: end_month
+    type: STRING
+    defaults: "2025-12"
+
+tasks:
+  - id: reference_data
+    type: io.kestra.plugin.core.flow.Subflow
+    namespace: bikeshare
+    flowId: reference_data_daily
+    wait: true
+    transmitFailed: true
+
+  - id: trips
+    type: io.kestra.plugin.core.flow.Subflow
+    namespace: bikeshare
+    flowId: trips_batch
+    wait: true
+    transmitFailed: true
+    inputs:
+      city: "{{ inputs.city }}"
+      start_month: "{{ inputs.start_month }}"
+      end_month: "{{ inputs.end_month }}"
+      run_dbt: false
+
+  - id: streaming_micro_batch
+    type: io.kestra.plugin.core.flow.Subflow
+    namespace: bikeshare
+    flowId: stream_lake_to_warehouse
+    wait: true
+    transmitFailed: true
+
+  - id: dbt
+    type: io.kestra.plugin.core.flow.Subflow
+    namespace: bikeshare
+    flowId: dbt_full_build
+    wait: true
+    transmitFailed: true
+
+  - id: bruin
+    type: io.kestra.plugin.core.flow.Subflow
+    namespace: bikeshare
+    flowId: bruin_pipeline
+    wait: true
+    transmitFailed: true

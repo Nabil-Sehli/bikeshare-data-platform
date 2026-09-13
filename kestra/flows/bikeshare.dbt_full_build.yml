@@ -1,0 +1,42 @@
+id: dbt_full_build
+namespace: bikeshare
+description: |
+  **Module 4 - Analytics engineering.** Full dbt run: seeds, every model, every
+  test, source freshness and generated documentation.
+
+labels:
+  project: bikeshare
+  layer: transformation
+
+inputs:
+  - id: full_refresh
+    type: BOOL
+    defaults: false
+    description: Rebuild incremental models (fct_trips) from scratch
+
+variables:
+  pipeline_env:
+    PG_HOST: "{{ envs.pg_host }}"
+    PG_PORT: "{{ envs.pg_port }}"
+    PG_DATABASE: "{{ envs.pg_database }}"
+    PG_USER: "{{ envs.pg_user }}"
+    PG_PASSWORD: "{{ envs.pg_password }}"
+
+tasks:
+  - id: dbt
+    type: io.kestra.plugin.scripts.shell.Commands
+    containerImage: bikeshare-pipelines:latest
+    taskRunner:
+      type: io.kestra.plugin.scripts.runner.docker.Docker
+      pullPolicy: NEVER
+      networkMode: bikeshare-net
+    env: "{{ render(vars.pipeline_env | toJson) }}"
+    commands:
+      - python -m bikeshare.warehouse.bootstrap
+      - cd /app/dbt
+      - dbt debug
+      - dbt seed
+      - "dbt build {{ inputs.full_refresh ? '--full-refresh' : '' }}"
+      # freshness warnings should be visible but never fail the run
+      - dbt source freshness || true
+      - dbt docs generate

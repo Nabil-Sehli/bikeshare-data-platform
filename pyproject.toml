@@ -1,0 +1,20 @@
+[project]
+name = "bikeshare-platform"
+version = "1.0.0"
+description = "End-to-end bike-share mobility data platform (Docker, Terraform, Kestra, dlt, Kafka, Spark, dbt, Bruin)"
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["bikeshare"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

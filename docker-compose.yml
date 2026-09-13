@@ -1,0 +1,265 @@
+# Bike-share mobility platform - full local stack
+#
+#   core:      postgres, minio, kafka           (make up-core)
+#   platform:  kestra, kafka-ui                 (make up)
+#   streaming: producer, lake/live consumers    (make up)
+#   serving:   dashboard                        (make up)
+#   tools:     pipelines, terraform (run-once)  (profile "tools")
+
+name: bikeshare
+
+x-pipeline-env: &pipeline-env
+  PG_HOST: ${PG_HOST}
+  PG_PORT: ${PG_PORT}
+  PG_DATABASE: ${PG_DATABASE}
+  PG_USER: ${PG_USER}
+  PG_PASSWORD: ${PG_PASSWORD}
+  PG_READER_USER: ${PG_READER_USER}
+  PG_READER_PASSWORD: ${PG_READER_PASSWORD}
+  S3_ENDPOINT: ${S3_ENDPOINT}
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+  S3_SECRET_KEY: ${S3_SECRET_KEY}
+  LAKE_BUCKET: ${LAKE_BUCKET}
+  KAFKA_BOOTSTRAP: ${KAFKA_BOOTSTRAP}
+  KAFKA_TOPIC_STATION_STATUS: ${KAFKA_TOPIC_STATION_STATUS}
+  GBFS_POLL_SECONDS: ${GBFS_POLL_SECONDS}
+  DEFAULT_CITY: ${DEFAULT_CITY}
+  WEATHER_START_DATE: ${WEATHER_START_DATE}
+  SPARK_DRIVER_MEMORY: ${SPARK_DRIVER_MEMORY}
+  KESTRA_URL: http://kestra:8080
+  KESTRA_USER: ${KESTRA_USER}
+  KESTRA_PASSWORD: ${KESTRA_PASSWORD}
+
+x-pipeline-image: &pipeline-image
+  image: bikeshare-pipelines:latest
+  build:
+    context: .
+    dockerfile: docker/pipelines/Dockerfile
+  networks: [bikeshare-net]
+
+services:
+  # ------------------------------------------------------------------ core
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PG_DATABASE}
+      POSTGRES_USER: ${PG_USER}
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
+    ports:
+      - "${PG_HOST_PORT}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    command: >
+      postgres -c shared_buffers=1GB -c work_mem=64MB -c maintenance_work_mem=512MB
+               -c max_wal_size=4GB -c synchronous_commit=off
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER} -d ${PG_DATABASE}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [bikeshare-net]
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [bikeshare-net]
+
+  kafka:
+    image: apache/kafka:4.3.1
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_LOG_RETENTION_HOURS: 72
+    ports:
+      - "29092:29092"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+    networks: [bikeshare-net]
+
+  # -------------------------------------------------------------- platform
+  kestra:
+    image: kestra/kestra:v2.0.1
+    restart: unless-stopped
+    stop_grace_period: 2m
+    # root is needed to talk to the Docker socket (dev setup only)
+    user: "root"
+    command: server standalone
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ENV_PG_HOST: ${PG_HOST}
+      ENV_PG_PORT: ${PG_PORT}
+      ENV_PG_DATABASE: ${PG_DATABASE}
+      ENV_PG_USER: ${PG_USER}
+      ENV_PG_PASSWORD: ${PG_PASSWORD}
+      ENV_S3_ENDPOINT: ${S3_ENDPOINT}
+      ENV_S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      ENV_S3_SECRET_KEY: ${S3_SECRET_KEY}
+      ENV_LAKE_BUCKET: ${LAKE_BUCKET}
+      ENV_SPARK_DRIVER_MEMORY: ${SPARK_DRIVER_MEMORY}
+      ENV_WEATHER_START_DATE: ${WEATHER_START_DATE}
+      KESTRA_CONFIGURATION: |
+        datasources:
+          postgres:
+            url: jdbc:postgresql://postgres:5432/kestra
+            driverClassName: org.postgresql.Driver
+            username: ${PG_USER}
+            password: ${PG_PASSWORD}
+        kestra:
+          tutorial-flows:
+            enabled: false
+          server:
+            basic-auth:
+              username: ${KESTRA_USER}
+              password: ${KESTRA_PASSWORD}
+          repository:
+            type: postgres
+          storage:
+            type: local
+            local:
+              base-path: "/app/storage"
+          queue:
+            type: postgres
+          tasks:
+            tmp-dir:
+              path: /tmp/kestra-wd/tmp
+          url: http://localhost:8080/
+    ports:
+      - "8080:8080"
+    volumes:
+      - kestra-data:/app/storage
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/kestra-wd:/tmp/kestra-wd
+    networks: [bikeshare-net]
+
+  kafka-ui:
+    image: kafbat/kafka-ui:v1.4.2
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_CLUSTERS_0_NAME: bikeshare
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    ports:
+      - "8081:8080"
+    networks: [bikeshare-net]
+
+  # ------------------------------------------------------------- streaming
+  producer:
+    <<: *pipeline-image
+    restart: unless-stopped
+    command: python -m bikeshare.streaming.producer
+    environment: *pipeline-env
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  consumer-lake:
+    <<: *pipeline-image
+    restart: unless-stopped
+    command: python -m bikeshare.streaming.consumer_lake
+    environment: *pipeline-env
+    depends_on:
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  consumer-live:
+    <<: *pipeline-image
+    restart: unless-stopped
+    command: python -m bikeshare.streaming.consumer_live
+    environment: *pipeline-env
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  # --------------------------------------------------------------- serving
+  dashboard:
+    <<: *pipeline-image
+    restart: unless-stopped
+    command: >
+      streamlit run dashboard/app.py --server.port 8501 --server.address 0.0.0.0
+      --server.headless true --browser.gatherUsageStats false
+      --theme.base light --theme.primaryColor "#2a78d6" --theme.backgroundColor "#f9f9f7"
+      --theme.secondaryBackgroundColor "#fcfcfb" --theme.textColor "#0b0b0b"
+    environment: *pipeline-env
+    ports:
+      - "8501:8501"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ------------------------------------------------------ run-once tools
+  pipelines:
+    <<: *pipeline-image
+    profiles: ["tools"]
+    environment: *pipeline-env
+    ports:
+      - "8082:8082"   # dbt docs serve
+
+  terraform:
+    image: hashicorp/terraform:1.16.2
+    profiles: ["tools"]
+    working_dir: /workspace
+    volumes:
+      - ./infra/terraform:/workspace
+    environment:
+      TF_VAR_pg_host: ${PG_HOST}
+      TF_VAR_pg_port: ${PG_PORT}
+      TF_VAR_pg_database: ${PG_DATABASE}
+      TF_VAR_pg_admin_user: ${PG_USER}
+      TF_VAR_pg_admin_password: ${PG_PASSWORD}
+      TF_VAR_pg_reader_user: ${PG_READER_USER}
+      TF_VAR_pg_reader_password: ${PG_READER_PASSWORD}
+      TF_VAR_minio_server: minio:9000
+      TF_VAR_minio_user: ${S3_ACCESS_KEY}
+      TF_VAR_minio_password: ${S3_SECRET_KEY}
+      TF_VAR_lake_bucket: ${LAKE_BUCKET}
+    networks: [bikeshare-net]
+
+volumes:
+  postgres-data:
+  minio-data:
+  kafka-data:
+  kestra-data:
+
+networks:
+  bikeshare-net:
+    name: bikeshare-net

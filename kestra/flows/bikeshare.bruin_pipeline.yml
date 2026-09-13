@@ -1,0 +1,35 @@
+id: bruin_pipeline
+namespace: bikeshare
+description: |
+  **Module 5 - Data platforms with Bruin.** Runs the Bruin pipeline in /app/bruin:
+  a Python ingestion asset plus SQL transformation assets with built-in quality checks.
+
+labels:
+  project: bikeshare
+  layer: platform
+
+variables:
+  pipeline_env:
+    PG_HOST: "{{ envs.pg_host }}"
+    PG_PORT: "{{ envs.pg_port }}"
+    PG_DATABASE: "{{ envs.pg_database }}"
+    PG_USER: "{{ envs.pg_user }}"
+    PG_PASSWORD: "{{ envs.pg_password }}"
+
+tasks:
+  - id: bruin_run
+    type: io.kestra.plugin.scripts.shell.Commands
+    containerImage: bikeshare-pipelines:latest
+    taskRunner:
+      type: io.kestra.plugin.scripts.runner.docker.Docker
+      pullPolicy: NEVER
+      networkMode: bikeshare-net
+    env: "{{ render(vars.pipeline_env | toJson) }}"
+    commands:
+      - cd /app/bruin
+      - ./run.sh
+
+triggers:
+  - id: daily
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "0 7 * * *"

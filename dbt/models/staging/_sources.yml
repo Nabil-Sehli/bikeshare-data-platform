@@ -1,0 +1,46 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Trip data cleaned by the Spark batch job (Module 6).
+    tables:
+      - name: trips
+        description: One row per valid trip. Range-partitioned by started_at (one partition per month).
+        columns:
+          - name: ride_id
+            data_tests: [not_null]
+      - name: station_daily_flows
+        description: Departures, arrivals and net flow per station per day, aggregated in Spark.
+      - name: trip_load_audit
+        description: Row counts per city/month load; used to drive incremental dbt models.
+        loaded_at_field: loaded_at
+        freshness:
+          warn_after: {count: 45, period: day}
+
+  - name: raw_weather
+    description: Open-Meteo hourly weather, loaded incrementally by dlt.
+    tables:
+      - name: weather_hourly
+        loaded_at_field: observed_at
+        freshness:
+          warn_after: {count: 2, period: day}
+
+  - name: raw_gbfs
+    description: GBFS reference data (stations, regions) loaded by dlt.
+    tables:
+      - name: stations
+      - name: regions
+
+  - name: raw_stream
+    description: Streaming station status, Kafka -> lake Parquet -> Postgres (dlt filesystem source).
+    tables:
+      - name: station_status
+
+  - name: live
+    description: Latest status per station, upserted continuously by the Kafka live consumer.
+    tables:
+      - name: station_status_latest
+        loaded_at_field: updated_at
+        freshness:
+          warn_after: {count: 15, period: minute}
+          error_after: {count: 2, period: hour}

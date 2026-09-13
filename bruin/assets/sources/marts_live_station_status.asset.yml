@@ -1,0 +1,3 @@
+name: marts.mart_live_station_status
+type: pg.source
+description: Real-time station availability view (dbt, fed by the Kafka live consumer).

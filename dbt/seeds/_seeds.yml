@@ -1,0 +1,16 @@
+version: 2
+
+seeds:
+  - name: wmo_weather_codes
+    description: WMO weather interpretation codes used by Open-Meteo, grouped into broad categories.
+    config:
+      column_types:
+        weather_code: integer
+    columns:
+      - name: weather_code
+        data_tests: [unique, not_null]
+      - name: weather_category
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [Clear, Cloudy, Fog, Drizzle, Rain, Snow, Thunderstorm]

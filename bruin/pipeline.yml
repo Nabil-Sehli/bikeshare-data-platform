@@ -1,0 +1,6 @@
+name: bikeshare_bruin
+schedule: daily
+start_date: "2025-01-01"
+
+default_connections:
+  postgres: warehouse

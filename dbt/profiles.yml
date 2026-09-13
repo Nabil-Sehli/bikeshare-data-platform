@@ -1,0 +1,14 @@
+bikeshare:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('PG_HOST', 'postgres') }}"
+      port: "{{ env_var('PG_PORT', '5432') | as_number }}"
+      user: "{{ env_var('PG_USER') }}"
+      password: "{{ env_var('PG_PASSWORD') }}"
+      dbname: "{{ env_var('PG_DATABASE', 'bikeshare') }}"
+      schema: marts
+      threads: 4
+      keepalives_idle: 0
+      connect_timeout: 15

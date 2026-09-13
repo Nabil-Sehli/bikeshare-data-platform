@@ -1,0 +1,27 @@
+# Batch processing
+pyspark==4.2.0
+
+# Ingestion
+dlt[postgres,s3,parquet]==1.30.0
+requests==2.32.5
+# boto3 left unpinned so pip can pick a botocore compatible with s3fs/aiobotocore
+boto3
+
+# Streaming
+confluent-kafka==2.15.1
+pyarrow==25.0.1
+
+# Warehouse / transformations
+psycopg2-binary==2.9.13
+dbt-core==1.11.*
+dbt-postgres==1.11.0
+
+# Dashboard
+streamlit==1.63.0
+plotly==6.3.0
+pandas==2.3.3
+sqlalchemy==2.0.44
+
+# Tooling
+ruff==0.14.0
+pytest==8.4.2

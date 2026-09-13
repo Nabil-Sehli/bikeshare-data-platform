@@ -1,0 +1,23 @@
+select
+    ride_id,
+    city,
+    source_month,
+    rideable_type,
+    member_type,
+    started_at,
+    ended_at,
+    started_at::date                         as start_date,
+    extract(hour from started_at)::int       as start_hour,
+    extract(isodow from started_at)::int     as start_day_of_week,
+    start_station_id,
+    start_station_name,
+    end_station_id,
+    end_station_name,
+    start_lat,
+    start_lng,
+    end_lat,
+    end_lng,
+    duration_min,
+    distance_km,
+    is_round_trip
+from {{ source('raw', 'trips') }}

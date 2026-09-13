@@ -1,0 +1,31 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# terraform
+infra/terraform/.terraform/
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.*
+infra/terraform/.terraform.lock.hcl.bak
+
+# dbt
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
+
+# bruin
+bruin/.bruin.yml
+bruin/logs/
+
+# dlt
+.dlt/secrets.toml
+_storage/
+
+# local data scratch
+data/
+spark-warehouse/
+metastore_db/
+derby.log

@@ -1,0 +1,33 @@
+name: bikeshare
+version: "1.0.0"
+config-version: 2
+profile: bikeshare
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+vars:
+  # how many days of streaming station status to aggregate into availability marts
+  station_status_lookback_days: 14
+  # a station is "low" on bikes/docks below this fraction of capacity
+  low_availability_ratio: 0.15
+
+models:
+  bikeshare:
+    staging:
+      +schema: staging
+      +materialized: view
+    intermediate:
+      +schema: intermediate
+      +materialized: view
+    marts:
+      +schema: marts
+      +materialized: table
+
+seeds:
+  bikeshare:
+    +schema: staging

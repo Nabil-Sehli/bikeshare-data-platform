@@ -1,0 +1,54 @@
+version: 2
+
+models:
+  - name: stg_trips
+    description: Cleaned trips (one row per ride) with calendar attributes.
+    columns:
+      - name: ride_id
+        data_tests: [not_null]
+      - name: member_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [member, casual]
+      - name: city
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [JC, NYC]
+
+  - name: stg_station_daily_flows
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [city, station_id, flow_date, source_month]
+
+  - name: stg_trip_load_audit
+    columns:
+      - name: rejected_pct
+        description: Share of raw rows rejected by the Spark quality rules.
+
+  - name: stg_weather_hourly
+    description: Hourly weather per city (local time, America/New_York) with derived bands.
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [city, observed_hour]
+    columns:
+      - name: temperature_c
+        data_tests: [not_null]
+
+  - name: stg_gbfs_stations
+    description: Current Citi Bike stations from GBFS. station_key = the station id used in trip files.
+    columns:
+      - name: gbfs_station_id
+        data_tests: [unique, not_null]
+      - name: station_key
+        data_tests: [not_null]
+
+  - name: stg_station_status
+    description: Deduplicated streaming station status events.
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [gbfs_station_id, last_reported]

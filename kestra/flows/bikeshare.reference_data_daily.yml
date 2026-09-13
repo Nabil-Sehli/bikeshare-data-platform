@@ -1,0 +1,78 @@
+id: reference_data_daily
+namespace: bikeshare
+description: |
+  **Workshop (dlt) + Module 4 - Daily reference data.**
+  - GBFS station information & regions -> raw_gbfs (merge)
+  - Open-Meteo hourly weather -> raw_weather (incremental merge)
+  - dbt: rebuild weather/station models and their downstream marts
+
+labels:
+  project: bikeshare
+  layer: ingestion
+
+variables:
+  pipeline_env:
+    PG_HOST: "{{ envs.pg_host }}"
+    PG_PORT: "{{ envs.pg_port }}"
+    PG_DATABASE: "{{ envs.pg_database }}"
+    PG_USER: "{{ envs.pg_user }}"
+    PG_PASSWORD: "{{ envs.pg_password }}"
+    WEATHER_START_DATE: "{{ envs.weather_start_date }}"
+
+tasks:
+  - id: ingest
+    type: io.kestra.plugin.core.flow.Parallel
+    tasks:
+      - id: dlt_gbfs_stations
+        type: io.kestra.plugin.scripts.shell.Commands
+        containerImage: bikeshare-pipelines:latest
+        taskRunner:
+          type: io.kestra.plugin.scripts.runner.docker.Docker
+          pullPolicy: NEVER
+          networkMode: bikeshare-net
+        env: "{{ render(vars.pipeline_env | toJson) }}"
+        retry:
+          type: constant
+          interval: PT2M
+          maxAttempts: 3
+        commands:
+          - python -m bikeshare.ingestion.dlt_stations
+
+      - id: dlt_weather
+        type: io.kestra.plugin.scripts.shell.Commands
+        containerImage: bikeshare-pipelines:latest
+        taskRunner:
+          type: io.kestra.plugin.scripts.runner.docker.Docker
+          pullPolicy: NEVER
+          networkMode: bikeshare-net
+        env: "{{ render(vars.pipeline_env | toJson) }}"
+        retry:
+          type: constant
+          interval: PT2M
+          maxAttempts: 3
+        commands:
+          - python -m bikeshare.ingestion.dlt_weather
+
+  - id: dbt_build
+    type: io.kestra.plugin.scripts.shell.Commands
+    containerImage: bikeshare-pipelines:latest
+    taskRunner:
+      type: io.kestra.plugin.scripts.runner.docker.Docker
+      pullPolicy: NEVER
+      networkMode: bikeshare-net
+    env: "{{ render(vars.pipeline_env | toJson) }}"
+    commands:
+      - cd /app/dbt
+      - dbt seed
+      - dbt build --select @source:raw_weather @source:raw_gbfs
+
+errors:
+  - id: log_failure
+    type: io.kestra.plugin.core.log.Log
+    level: ERROR
+    message: "reference_data_daily failed (execution {{ execution.id }})"
+
+triggers:
+  - id: daily
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "0 5 * * *"

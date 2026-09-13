@@ -1,0 +1,105 @@
+version: 2
+
+models:
+  - name: fct_trips
+    description: >
+      One row per trip, enriched with weather at trip start. Incrementally built per
+      (city, month) based on raw.trip_load_audit.
+    columns:
+      - name: ride_id
+        data_tests: [not_null]
+      - name: duration_min
+        data_tests: [not_null]
+      - name: start_station_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_stations')
+                field: station_key
+              config:
+                severity: warn
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [city, ride_id]
+
+  - name: dim_stations
+    description: All stations (active in GBFS and/or seen in trips). station_key = trip-file station id.
+    columns:
+      - name: station_key
+        data_tests: [unique, not_null]
+      - name: city
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [JC, NYC]
+
+  - name: dim_date
+    columns:
+      - name: date_day
+        data_tests: [unique, not_null]
+
+  - name: agg_daily_demand
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [city, start_date, member_type, rideable_type]
+
+  - name: mart_daily_city_summary
+    description: Daily trips, rider mix and weather per city - the main dashboard table.
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [city, start_date]
+    columns:
+      - name: trips
+        data_tests: [not_null]
+
+  - name: mart_weather_impact
+    description: Average trips per hour by temperature band, rain and weekday/weekend.
+
+  - name: mart_hourly_demand_profile
+    description: Average trips by weekday and hour of day (heatmap).
+
+  - name: mart_station_rebalancing
+    description: Station-level net flow of bikes; identifies stations that drain or fill up.
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [city, station_key]
+
+  - name: mart_station_availability_hourly
+    description: Share of each hour a station was empty or full, from the streaming feed.
+    columns:
+      - name: pct_time_empty
+        data_tests:
+          - not_null
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [station_key, status_hour]
+
+  - name: mart_live_station_status
+    description: Real-time station availability (view on the Kafka-fed live table).
+    columns:
+      - name: availability_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [Offline, Empty, Full, Low bikes, Low docks, OK]
+
+exposures:
+  - name: bikeshare_dashboard
+    label: Bike-share Mobility Dashboard
+    type: dashboard
+    maturity: high
+    url: http://localhost:8501
+    description: Streamlit dashboard with historical demand, weather impact, rebalancing and live availability.
+    depends_on:
+      - ref('mart_daily_city_summary')
+      - ref('mart_weather_impact')
+      - ref('mart_hourly_demand_profile')
+      - ref('mart_station_rebalancing')
+      - ref('mart_live_station_status')
+    owner:
+      name: Data Engineering
