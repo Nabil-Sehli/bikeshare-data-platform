@@ -1,7 +1,7 @@
 id: stream_lake_to_warehouse
 namespace: bikeshare
 description: |
-  **Module 7 -> Module 3 - Micro-batch the streaming data into the warehouse.**
+  **Streaming -> warehouse: micro-batch the streaming data into the warehouse.**
   The Kafka lake consumer continuously writes Parquet files to
   s3://bikeshare-lake/streaming/station_status/. Every hour this flow loads the
   new files (dlt filesystem source, incremental on modification date) and

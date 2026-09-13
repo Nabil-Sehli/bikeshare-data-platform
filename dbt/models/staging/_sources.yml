@@ -2,7 +2,7 @@ version: 2
 
 sources:
   - name: raw
-    description: Trip data cleaned by the Spark batch job (Module 6).
+    description: Trip data cleaned by the Spark batch job.
     tables:
       - name: trips
         description: One row per valid trip. Range-partitioned by started_at (one partition per month).

@@ -1,7 +1,7 @@
 id: dbt_full_build
 namespace: bikeshare
 description: |
-  **Module 4 - Analytics engineering.** Full dbt run: seeds, every model, every
+  **Analytics engineering.** Full dbt run: seeds, every model, every
   test, source freshness and generated documentation.
 
 labels:

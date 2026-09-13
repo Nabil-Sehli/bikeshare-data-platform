@@ -1,4 +1,4 @@
-"""Module 7 - Streaming: GBFS station_status -> Kafka.
+"""Streaming: GBFS station_status -> Kafka.
 
 Polls the Citi Bike GBFS feed every GBFS_POLL_SECONDS and publishes one message
 per station whose `last_reported` changed since the previous poll. Messages are

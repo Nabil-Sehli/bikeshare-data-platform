@@ -1,4 +1,4 @@
-"""Module 7 - Streaming: Kafka -> data lake (Parquet on MinIO).
+"""Streaming: Kafka -> data lake (Parquet on MinIO).
 
 Consumer group `lake-writer`. Buffers messages and flushes a Parquet file every
 FLUSH_SECONDS or FLUSH_MAX_ROWS, partitioned by ingestion date/hour:

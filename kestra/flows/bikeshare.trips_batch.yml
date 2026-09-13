@@ -1,7 +1,7 @@
 id: trips_batch
 namespace: bikeshare
 description: |
-  **Modules 2 + 6 - Batch pipeline for Citi Bike trip history.**
+  **Batch pipeline for Citi Bike trip history.**
   1. Download monthly trip archives into the MinIO data lake (raw zone)
   2. Clean + aggregate them with Spark -> curated Parquet + Postgres (raw schema)
   3. Build the dependent dbt models and run their tests

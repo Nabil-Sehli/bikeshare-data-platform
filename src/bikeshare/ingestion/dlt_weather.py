@@ -1,4 +1,4 @@
-"""Workshop - data ingestion with dlt: Open-Meteo hourly weather -> raw_weather.
+"""Data ingestion with dlt: Open-Meteo hourly weather -> raw_weather.
 
 Incremental: dlt keeps the last loaded date per city in its state. Each run
 re-fetches the last few days (recent data is provisional and gets corrected),

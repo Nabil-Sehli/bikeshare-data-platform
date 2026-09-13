@@ -16,7 +16,7 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends openjdk-17-jre-headless curl ca-certificates git procps \
  && rm -rf /var/lib/apt/lists/*
 
-# Bruin CLI (Module 5 - data platforms)
+# Bruin CLI (data platform + quality checks)
 RUN curl -fsSL -o /tmp/bruin.tar.gz \
       "https://github.com/bruin-data/bruin/releases/download/v${BRUIN_VERSION}/bruin_Linux_x86_64.tar.gz" \
  && tar -xzf /tmp/bruin.tar.gz -C /usr/local/bin bruin \

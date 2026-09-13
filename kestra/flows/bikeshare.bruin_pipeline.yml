@@ -1,7 +1,7 @@
 id: bruin_pipeline
 namespace: bikeshare
 description: |
-  **Module 5 - Data platforms with Bruin.** Runs the Bruin pipeline in /app/bruin:
+  **Data platform with Bruin.** Runs the Bruin pipeline in /app/bruin:
   a Python ingestion asset plus SQL transformation assets with built-in quality checks.
 
 labels:

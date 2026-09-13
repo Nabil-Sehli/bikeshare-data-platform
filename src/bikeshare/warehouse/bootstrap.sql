@@ -2,7 +2,7 @@
 -- Schemas + grants are managed by Terraform (infra/terraform); this file only
 -- creates tables, idempotently. Run with: python -m bikeshare.warehouse.bootstrap
 
--- ---------------------------------------------------------------- Spark (Module 6)
+-- ---------------------------------------------------------------- Spark batch job
 CREATE TABLE IF NOT EXISTS raw.trips (
     ride_id             text        NOT NULL,
     city                text        NOT NULL,
@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS raw.trip_load_audit (
     PRIMARY KEY (city, source_month)
 );
 
--- ------------------------------------------------------ Kafka live consumer (Module 7)
+-- ------------------------------------------------------ Kafka live consumer
 CREATE TABLE IF NOT EXISTS live.station_status_latest (
     station_id            text PRIMARY KEY,
     num_bikes_available   integer,

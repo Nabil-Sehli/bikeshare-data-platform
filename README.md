@@ -9,20 +9,20 @@ Everything runs locally on Docker, with no cloud account needed.
 **Tested at scale:** one month of New York City data (June 2025, **4.76M trips**) runs end to end in **under 9 minutes** on a laptop:
 download, Spark, streaming micro-batch, the full dbt build with tests, and Bruin.
 
-It covers every module of the [DataTalksClub Data Engineering Zoomcamp](https://github.com/DataTalksClub/data-engineering-zoomcamp):
+### Tech stack
 
-| Zoomcamp module | Tool | Where in this repo |
+| Layer | Tool | Where in this repo |
 |---|---|---|
-| 1 · Containerization & IaC | Docker Compose, **Terraform**, Postgres | `docker-compose.yml`, `infra/terraform/` |
-| 2 · Workflow orchestration | **Kestra** 2.0 | `kestra/flows/` |
-| Workshop · Data ingestion | **dlt** | `src/bikeshare/ingestion/dlt_*.py` |
-| 3 · Data warehouse | Postgres (BigQuery stand-in): partitioned & indexed | `src/bikeshare/warehouse/bootstrap.sql` |
-| 4 · Analytics engineering | **dbt** | `dbt/` |
-| 5 · Data platforms | **Bruin** | `bruin/` |
-| 6 · Batch processing | **Spark** 4 | `src/bikeshare/spark/` |
-| 7 · Streaming | **Kafka** 4 | `src/bikeshare/streaming/` |
-| Data lake | MinIO (S3 API, GCS stand-in) | bucket `bikeshare-lake` |
-| Dashboard | Streamlit + Plotly | `dashboard/app.py` |
+| Containers & infrastructure as code | Docker Compose, **Terraform** | `docker-compose.yml`, `infra/terraform/` |
+| Workflow orchestration | **Kestra** 2.0 | `kestra/flows/` |
+| API & file ingestion | **dlt** | `src/bikeshare/ingestion/dlt_*.py` |
+| Data lake | **MinIO** (S3 API) | bucket `bikeshare-lake` |
+| Batch processing | **Spark** 4 | `src/bikeshare/spark/` |
+| Streaming | **Kafka** 4 | `src/bikeshare/streaming/` |
+| Data warehouse | **Postgres** 17 (partitioned & indexed) | `src/bikeshare/warehouse/bootstrap.sql` |
+| Transformations & tests | **dbt** | `dbt/` |
+| Data platform / quality checks | **Bruin** | `bruin/` |
+| Dashboard | **Streamlit** + Plotly | `dashboard/app.py` |
 
 ---
 
@@ -125,9 +125,9 @@ flowchart LR
 
 ---
 
-## 3. Warehouse design (Module 3)
+## 3. Warehouse design
 
-Postgres stands in for BigQuery. The BigQuery optimisations translate as follows:
+Postgres plays the role a cloud warehouse such as BigQuery would. The usual cloud-warehouse optimisations translate as follows:
 
 | BigQuery concept | Implementation here | Why |
 |---|---|---|
@@ -139,7 +139,7 @@ Postgres stands in for BigQuery. The BigQuery optimisations translate as follows
 
 ---
 
-## 4. Transformations: dbt (Module 4)
+## 4. Transformations: dbt
 
 ```
 sources (raw, raw_weather, raw_gbfs, raw_stream, live)
@@ -160,7 +160,7 @@ sources (raw, raw_weather, raw_gbfs, raw_stream, live)
 - An **exposure** documents the dashboard's dependencies.
 - Docs: `.\make.ps1 dbt-docs` serves them at http://localhost:8082.
 
-## 5. Bruin (Module 5)
+## 5. Data platform: Bruin
 
 `bruin/` is a separate pipeline showing Bruin's all-in-one approach:
 - a **Python asset** (`gbfs_pricing_plans.py`) that ingests pricing plans and is materialized by Bruin
@@ -169,7 +169,7 @@ sources (raw, raw_weather, raw_gbfs, raw_stream, live)
   - `ebike_single_ride_revenue_daily`: estimated casual e-bike revenue from the current GBFS price
   - `network_health_snapshots`: an **append** strategy that builds a history of network health snapshots
 
-## 6. Orchestration: Kestra (Module 2)
+## 6. Orchestration: Kestra
 
 | Flow | Schedule | What it does |
 |---|---|---|
@@ -217,7 +217,8 @@ Every chart has a "Show data" table view. The dashboard connects as the read-onl
 ### Quick start (Windows PowerShell)
 
 ```powershell
-cd de-capstone
+git clone https://github.com/Nabil-Sehli/bikeshare-data-platform.git
+cd bikeshare-data-platform
 .\make.ps1 setup                                        # ~10 min the first time (image build)
 .\make.ps1 backfill -City JC -Start 2025-01 -End 2025-12
 ```
@@ -225,6 +226,7 @@ cd de-capstone
 ### Quick start (Linux / macOS / WSL)
 
 ```bash
+git clone https://github.com/Nabil-Sehli/bikeshare-data-platform.git && cd bikeshare-data-platform
 make setup
 make backfill CITY=JC START=2025-01 END=2025-12
 ```
@@ -272,7 +274,7 @@ Each NYC month adds roughly 5 GB to the lake (raw CSV) and 2 GB to Postgres.
 ## 9. Project structure
 
 ```
-de-capstone/
+bikeshare-data-platform/
 ├── docker-compose.yml            # whole platform
 ├── docker/pipelines/             # one image: Spark + dlt + Kafka clients + dbt + Bruin + Streamlit
 ├── infra/terraform/              # MinIO bucket + lifecycle, Postgres schemas, roles, grants
@@ -301,7 +303,7 @@ de-capstone/
 
 ## 11. Moving to GCP later
 
-The architecture maps one-to-one onto the Zoomcamp's cloud stack:
+The local services map one-to-one onto managed cloud equivalents (GCP shown):
 - MinIO → **GCS**: swap `S3_ENDPOINT` for `gs://` and use the GCS connector instead of S3A
 - Postgres → **BigQuery**: `dbt-bigquery`, the dlt `bigquery` destination, and `partition_by` / `cluster_by` configs
 - Terraform: swap the `minio`/`postgresql` providers for `google_storage_bucket` / `google_bigquery_dataset`

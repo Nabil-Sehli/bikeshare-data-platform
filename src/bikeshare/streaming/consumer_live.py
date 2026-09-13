@@ -1,4 +1,4 @@
-"""Module 7 - Streaming: Kafka -> live serving table in Postgres.
+"""Streaming: Kafka -> live serving table in Postgres.
 
 Consumer group `live-view` (independent from `lake-writer`, so both receive
 every message). Upserts the latest status per station into

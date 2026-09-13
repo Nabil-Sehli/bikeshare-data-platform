@@ -13,7 +13,7 @@ terraform {
   }
 }
 
-# Local-cloud equivalents of the GCP resources used in the Zoomcamp:
+# Local equivalents of typical GCP resources:
 #   GCS bucket        -> MinIO bucket (S3 API)
 #   BigQuery datasets -> Postgres schemas
 #   IAM / service acc -> Postgres roles + grants

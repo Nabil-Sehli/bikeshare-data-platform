@@ -1,4 +1,4 @@
-"""Workshop - data ingestion with dlt: GBFS reference data -> raw_gbfs.
+"""Data ingestion with dlt: GBFS reference data -> raw_gbfs.
 
 Loads station_information (name, coordinates, capacity) and system_regions,
 merged on their natural keys so the tables always reflect the current network.

@@ -1,4 +1,4 @@
-"""Module 6 - Batch processing with Spark.
+"""Batch processing with Spark.
 
 For each month of raw trip CSVs in the lake:
   1. enforce a schema, parse timestamps, deduplicate, drop invalid trips

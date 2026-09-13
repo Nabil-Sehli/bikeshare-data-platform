@@ -1,7 +1,7 @@
 id: reference_data_daily
 namespace: bikeshare
 description: |
-  **Workshop (dlt) + Module 4 - Daily reference data.**
+  **Daily reference data (dlt + dbt).**
   - GBFS station information & regions -> raw_gbfs (merge)
   - Open-Meteo hourly weather -> raw_weather (incremental merge)
   - dbt: rebuild weather/station models and their downstream marts
