@@ -139,7 +139,8 @@ services:
             username: ${PG_USER}
             password: ${PG_PASSWORD}
         kestra:
-          tutorial-flows:
+          # key must be camelCase: Kestra ignores "tutorial-flows" and loads a demo flow
+          tutorialFlows:
             enabled: false
           server:
             basic-auth:

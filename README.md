@@ -4,6 +4,11 @@ An end-to-end data engineering project on **Citi Bike** (New York City and Jerse
 It combines **batch** trip history, **streaming** live station status and **API** weather data.
 Everything runs locally on Docker, with no cloud account needed.
 
+![Demo: Kestra runs the end-to-end backfill, then the dashboard shows demand, weather impact, rebalancing and the live Kafka-fed station map](docs/images/demo.gif)
+
+**Tested at scale:** one month of New York City data (June 2025, **4.76M trips**) runs end to end in **under 9 minutes** on a laptop:
+download, Spark, streaming micro-batch, the full dbt build with tests, and Bruin.
+
 It covers every module of the [DataTalksClub Data Engineering Zoomcamp](https://github.com/DataTalksClub/data-engineering-zoomcamp):
 
 | Zoomcamp module | Tool | Where in this repo |
@@ -228,7 +233,16 @@ make backfill CITY=JC START=2025-01 END=2025-12
 start Kestra, streaming services and dashboard → deploy flows.
 `backfill` triggers the `platform_backfill` flow in Kestra and waits for it to finish.
 
-For the big dataset, run `backfill -City NYC -Start 2025-06 -End 2025-06` (one month ≈ 1 GB download, ~4.5M trips).
+For the big dataset, run `backfill -City NYC -Start 2025-06 -End 2025-06`.
+
+Measured runs (Docker Desktop, 16 CPUs, 16 GB RAM assigned):
+
+| Backfill | Raw rows | Clean trips | Rejected | Wall time (whole `platform_backfill`) |
+|---|---|---|---|---|
+| JC, Jan-Dec 2025 (12 months) | 1,002,704 | 1,002,247 | 0.05% | ~3.5 min |
+| NYC, Jun 2025 (1 month, 1 GB zip) | 4,759,345 | 4,757,402 | 0.04% | ~9 min (Spark step ~4 min) |
+
+Each NYC month adds roughly 5 GB to the lake (raw CSV) and 2 GB to Postgres.
 
 ### URLs and local credentials (from `.env`)
 
