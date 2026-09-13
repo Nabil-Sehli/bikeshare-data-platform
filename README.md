@@ -295,7 +295,7 @@ The architecture maps one-to-one onto the Zoomcamp's cloud stack:
 
 ## 12. Data sources & attribution
 
-This repository contains **code only**. No data is committed; every dataset is downloaded at run time from its source.
+The code is released under the [MIT License](LICENSE). The repository contains **code only**: no data is committed, and every dataset is downloaded at run time from its source under its own terms.
 
 - Trip history and GBFS feeds: [Citi Bike System Data](https://citibikenyc.com/system-data), provided by Lyft Bikes and Scooters, LLC under the [Citi Bike Data License Agreement](https://citibikenyc.com/data-sharing-policy).
 - Weather: [Open-Meteo.com](https://open-meteo.com/), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
